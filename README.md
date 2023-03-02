@@ -1,5 +1,5 @@
 ![Vcu Computer Science College of Engineering](https://user-images.githubusercontent.com/80475089/222560075-29c03b0f-7035-4172-aa00-c266862969c1.png)
-# CMSC414
+# CMSC414 Spring 2023
 Semester Project: 
 Giselle “G” Attard,
 Christian Jones
