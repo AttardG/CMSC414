@@ -4,7 +4,7 @@ Semester Project
 Giselle “G” Attard
 Christian Jones
 
-Objective
+Objective:
 DNS Poisoning Application/Tool using Python
 
 Main Idea
