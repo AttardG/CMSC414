@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import *
 
 class dns_window(QMainWindow):
 
-    #Constructor
+    #Constructorr
     def __init__(self):
         super().__init__()
         self.htmloption = False
