@@ -392,7 +392,7 @@ class dns_window(QMainWindow):
         print(pkt.summary())
 
     def Start(self):
-        failed = 0
+        failed = 0 #Fail Check
         if self.running == False:
             self.running = True
             if self.Version == "Ubuntu":
