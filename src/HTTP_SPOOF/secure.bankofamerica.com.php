@@ -221,10 +221,4 @@
             </div>
         </div>
     </body>
-    <script>
-        function errorcheck(){
-            document.getElementById("errorp").style.display = "block";
-        }
-        document.location.hash = "/login/sign-in/signOnV2Screen.go";
-    </script>
 </html>

@@ -65,7 +65,7 @@ try:
                 checkarp[1] = checkarp[1].replace(paren,"")
             IPs_MAC.append(checkarp[1]); IPs_MAC.append(checkarp[3])
 
-    IPs_MAC.append(hostname[0]); IPs_MAC.append(MAC)          
+    IPs_MAC.append(hostname[0]); IPs_MAC.append(MAC); IPs_MAC.append(iface)      
     print(IPs_MAC)
 
 except:

