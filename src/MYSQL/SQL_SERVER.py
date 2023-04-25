@@ -3,6 +3,7 @@ import sys
 
 sqlInfo = open('../SqlCredentials.txt','r')
 sqlCreds = sqlInfo.readlines()
+sqlCreds = [line.replace("\n","") for line in sqlCreds if 1==1]
 
 if sys.argv[1] == "S":
     mydb = ""
