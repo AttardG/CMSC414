@@ -1,0 +1,3 @@
+https://www.thepythoncode.com/article/building-arp-spoofer-using-scapy
+https://www.thepythoncode.com/article/make-dns-spoof-python
+https://www.tutorialspoint.com/pyqt5/index.htm
