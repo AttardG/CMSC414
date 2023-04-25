@@ -10,7 +10,7 @@
 
 import os
 import subprocess
-import re
+import reS
 
 try: 
 
