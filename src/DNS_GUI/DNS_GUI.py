@@ -188,7 +188,7 @@ class dns_window(QMainWindow):
     def help(self):
         helpbox = QMessageBox(self)
         helpbox.setWindowTitle("Help")
-        helptext = "Default OS: Ubuntu\n\nRequirements:\nBefore running the GUI run the install.py file using sudo python3 install.py or sudo python install.py This file is required to downloads all dependencies needed for the GUI\n\nSetup for HTTP Spoof:\nGo to Mysql tab in menu to setup/reset Mysql DB and credentials table\nAll spoofed HTML/PHP files and dependencies should be stored in /var/www/<spoof domain> folder\nSet sql DB info/credentials in SqlCredentials.txt and set the victim IP for the MITM in victimIP.txt (only 1 IP)\nInstructions:\nTo run click start, to stop click stop\nTo add domains to poison change the domains.txt file\nTo add domains that redirect to a spoofed HTML change the domainsSpoof.txt file\nMysql credentials table results can be viewed in View menu\n\nThis program must be run with root privileges to function properly"
+        helptext = "Default OS: Ubuntu\n\nRequirements:\nBefore running the GUI run the install.py file using sudo python3 install.py or sudo python install.py This file is required to downloads all dependencies needed for the GUI\n\nSetup for HTTP Spoof:\nGo to Mysql tab in menu to setup/reset Mysql DB and credentials table\nAll spoofed HTML/PHP files and dependencies should be stored in /var/www/<spoof domain> folder\nSet sql DB info/credentials in SqlCredentials.txt and set the victim IP for the MITM in victimIP.txt (only 1 IP)\n\nInstructions:\nTo run click start, to stop click stop\nTo add domains to poison change the domains.txt file\nTo add domains that redirect to a spoofed HTML change the domainsSpoof.txt file\nMysql credentials table results can be viewed in View menu\n\nThis program must be run with root privileges to function properly"
         helpbox.setText(helptext)
         helpbox.exec()
     def about(self):
@@ -333,13 +333,17 @@ class dns_window(QMainWindow):
     
     #Mysql
     def mysqltable(self, todo):
+        sqlInfo = open('../SqlCredentials.txt','r')
+        sqlCreds = sqlInfo.readlines()
+        sqlCreds = [line.replace("\n","") for line in sqlCreds if 1==1]
+
         if todo == "S":
             mydb = ""
             try:
                 mydb = mysql.connector.connect(
-                    host="127.0.0.1",
-                    user="debian-sys-maint",
-                    password="5EB0SFQgoKH3KZ8p",
+                    host=f"{sqlCreds[0]}",
+                    user=f"{sqlCreds[1]}",
+                    password=f"{sqlCreds[2]}",
                 )
             except mysql.connector.Error as err:
                 print("Mysql Connection error {}".format(err))
@@ -355,10 +359,10 @@ class dns_window(QMainWindow):
             
             try: 
                 mydb = mysql.connector.connect(
-                    host="127.0.0.1",
-                    user="debian-sys-maint",
-                    password="5EB0SFQgoKH3KZ8p",
-                    database="spoof"
+                    host=f"{sqlCreds[0]}",
+                    user=f"{sqlCreds[1]}",
+                    password=f"{sqlCreds[2]}",
+                    database=f"{sqlCreds[3]}"
                 )
             except mysql.connector.Error as err:
                 print("Mysql Connection error {}".format(err))
@@ -378,10 +382,10 @@ class dns_window(QMainWindow):
             mydb = ""
             try: 
                 mydb = mysql.connector.connect(
-                    host="127.0.0.1",
-                    user="debian-sys-maint",
-                    password="5EB0SFQgoKH3KZ8p",
-                    database="spoof"
+                    host=f"{sqlCreds[0]}",
+                    user=f"{sqlCreds[1]}",
+                    password=f"{sqlCreds[2]}",
+                    database=f"{sqlCreds[3]}"
                 )
             except mysql.connector.Error as err:
                 print("Mysql Connection error {}".format(err))
@@ -410,10 +414,10 @@ class dns_window(QMainWindow):
             mydb = ""
             try: 
                 mydb = mysql.connector.connect(
-                    host="127.0.0.1",
-                    user="debian-sys-maint",
-                    password="5EB0SFQgoKH3KZ8p",
-                    database="spoof"
+                    host=f"{sqlCreds[0]}",
+                    user=f"{sqlCreds[1]}",
+                    password=f"{sqlCreds[2]}",
+                    database=f"{sqlCreds[3]}"
                 )
             except mysql.connector.Error as err:
                 print("Mysql Connection error {}".format(err))
@@ -510,10 +514,10 @@ class dns_window(QMainWindow):
             else:
                 self.htmloption = False
 
-    def poison(self,ip,ipv6,spoof):
+    def poison(self,ip,ipv6,spoof,domain):
         system('sudo resolvectl flush-caches')
         print("Running DNS Spoof")
-        system(f'sudo python3 ../DNS_SPOOF/DNS_SPOOF2.py {ip} {spoof}')
+        system(f'sudo python3 ../DNS_SPOOF/DNS_SPOOF2.py {ip} {spoof} {domain}')
         self.Stop()
 
     def Start(self):
@@ -565,9 +569,10 @@ class dns_window(QMainWindow):
                         spoofUrl = self.dropdown2.currentText()
                     else:
                         spoofUrl = "None"
+                    attackUrl = self.dropdown.currentText()
                     time = datetime.now()
                     self.lists2.addItem(f"Poisoning has begun {time}")
-                    self.poison(self.ip,self.ipv6,spoofUrl)
+                    self.poison(self.ip,self.ipv6,spoofUrl,attackUrl)
                     #self.q.put("run")
                     #self.t1 = Thread(target=self.poison, daemon= True)
                     #self.t1.start()
